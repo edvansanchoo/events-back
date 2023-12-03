@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using events_back.Context;
+using events_back.DTO;
 using events_back.Model;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -40,24 +42,37 @@ namespace events_back.Controllers
         }
 
         [HttpPost()]
-        public async Task<ActionResult<ParticipantInEvent>> Save([FromBody] ParticipantInEvent participantToSave){
-            var eventdb = await _eventContext.Events.FirstOrDefaultAsync(x => x.Id.Equals(participantToSave.EventId));
-            if(eventdb == null)
-                return NotFound("Event Not Found");
-            
-            var participantdb = await _eventContext.Participants.FirstOrDefaultAsync(x => x.Id.Equals(participantToSave.ParticipantId));
-            if(participantdb == null)
-                return NotFound("Partipant Not Found");
+        public async Task<ActionResult<ParticipantInEvent>> Save([FromBody] ParticipantInEventDTO participantInEventDTO){
+            try
+            {
+                var eventdb = await _eventContext.Events.FirstOrDefaultAsync(x => x.Id.Equals(participantInEventDTO.EventId));
+                if(eventdb == null)
+                    return NotFound("Event Not Found");
+                
+                var participantdb = await _eventContext.Participants.FirstOrDefaultAsync(x => x.Id.Equals(participantInEventDTO.ParticipantId));
+                if(participantdb == null)
+                    return NotFound("Partipant Not Found");
 
+                ParticipantInEvent participantToSave = new ParticipantInEvent(participantInEventDTO);
+                await _eventContext.ParticipantInEvents.AddAsync(participantToSave);
+                await _eventContext.SaveChangesAsync();
+                return Ok(participantToSave);
+            }
+            catch (DbUpdateException ex)
+            {
+                if (ex.InnerException is SqlException sqlException && sqlException.Number == 2627)
+                {
+                    return Conflict("The Participant has already been registered for this event.");
+                }
 
-            participantToSave.DateParticipation = DateTime.Now;
-            participantToSave.LastUpdate = DateTime.Now;
-            participantToSave.Event = eventdb;
-            participantToSave.Participant = participantdb;
-            await _eventContext.ParticipantInEvents.AddAsync(participantToSave);
-            _eventContext.SaveChanges();
-            return Ok(participantToSave);
+                return BadRequest(ex);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
         }
+        
         [HttpPut()]
         public async Task<ActionResult<ParticipantInEvent>> Update([FromBody] ParticipantInEvent participantToSave){
             var participantInEventdb = await _eventContext.ParticipantInEvents.FirstOrDefaultAsync(x => x.Id.Equals(participantToSave.Id));
@@ -78,8 +93,8 @@ namespace events_back.Controllers
             participantInEventdb.Participant = participantdb;
 
             await _eventContext.ParticipantInEvents.AddAsync(participantInEventdb);
-            _eventContext.SaveChanges();
-            return Ok(participantInEventdb);
+            await _eventContext.SaveChangesAsync();
+            return Ok(participantToSave);
         }
 
 
@@ -90,7 +105,7 @@ namespace events_back.Controllers
                 return NotFound("ParticipantInEvent Not Found");
 
             _eventContext.Remove(participantInEventdb);
-            _eventContext.SaveChanges();
+            await _eventContext.SaveChangesAsync();
             return Ok(participantInEventdb);
         }
     }
