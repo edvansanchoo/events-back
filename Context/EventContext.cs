@@ -20,6 +20,14 @@ namespace events_back.Context
         {
             modelBuilder.Entity<ParticipantInEvent>()
                 .HasKey(c => new {c.ParticipantId, c.EventId});
+
+             modelBuilder.Entity<Participant>()
+                .HasIndex(e => e.Control)
+                .IsUnique();
+
+            modelBuilder.Entity<Participant>()
+                .HasIndex(e => e.IDWControl)
+                .IsUnique();
         }
     }
 }

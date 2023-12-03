@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using events_back.Model;
 using events_back.Context;
 using Microsoft.EntityFrameworkCore;
+using events_back.DTO;
 
 namespace events_back.Controllers
 {
@@ -34,11 +35,10 @@ namespace events_back.Controllers
         }
 
         [HttpPost()]
-        public async Task<ActionResult<Event>> Save([FromBody] Event eventToSave){
-            eventToSave.DateCreation = DateTime.Now;
-            eventToSave.LastUpdate = DateTime.Now;
+        public async Task<ActionResult<Event>> Save([FromBody] EventDTO eventDTO){
+            Event eventToSave = new Event(eventDTO, true);
             await _eventContext.Events.AddAsync(eventToSave);
-            _eventContext.SaveChanges();
+            await _eventContext.SaveChangesAsync();
             return Ok(eventToSave);
         }
 
@@ -54,7 +54,7 @@ namespace events_back.Controllers
             if(eventToUpdate.ParticipantInEvents != null)
                 eventdb.ParticipantInEvents = eventToUpdate.ParticipantInEvents;
 
-            _eventContext.SaveChanges();
+            await _eventContext.SaveChangesAsync();
             return Ok(eventToUpdate);
             
             
@@ -67,7 +67,7 @@ namespace events_back.Controllers
                 return NotFound("Event Does Not Exist");
 
             _eventContext.Remove(eventdb);
-            _eventContext.SaveChanges();
+            await _eventContext.SaveChangesAsync();
             return Ok(eventdb);
         }
     }
